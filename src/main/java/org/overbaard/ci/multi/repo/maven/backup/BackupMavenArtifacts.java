@@ -1,5 +1,6 @@
 package org.overbaard.ci.multi.repo.maven.backup;
 
+import static org.overbaard.ci.multi.repo.maven.backup.CopyDirectoryVisitor.LargeFileAction.NONE;
 import static org.overbaard.ci.multi.repo.maven.backup.CopyDirectoryVisitor.LargeFileAction.SPLIT;
 
 import java.io.BufferedReader;
@@ -23,6 +24,7 @@ import javax.xml.stream.XMLStreamReader;
 
 import org.apache.maven.model.Model;
 import org.apache.maven.model.io.xpp3.MavenXpp3Reader;
+import org.overbaard.ci.multi.repo.maven.backup.CopyDirectoryVisitor.LargeFileAction;
 
 /**
  * Backs up the maven artifacts created by a maven project
@@ -39,16 +41,18 @@ public class BackupMavenArtifacts {
     private final Path rootPom;
     private final Path mavenRepo;
     private final Path backupLocation;
+    private final boolean useGitLfs;
 
-    private BackupMavenArtifacts(Path rootPom, Path mavenRepo, Path backupLocation) {
+    private BackupMavenArtifacts(Path rootPom, Path mavenRepo, Path backupLocation, boolean useGitLfs) {
         this.rootPom = rootPom;
         this.mavenRepo = mavenRepo;
         this.backupLocation = backupLocation;
+        this.useGitLfs = useGitLfs;
     }
 
     public static void backup(String[] args) throws Exception {
-        if (args.length != 3) {
-            throw new IllegalStateException("Need the following three args: <root pom path> <maven repo root> <backupLocation>");
+        if (args.length != 4) {
+            throw new IllegalStateException("Need the following four args: <root pom path> <maven repo root> <backupLocation> <use git-lfs (boolean)>");
         }
 
         Path rootPom = Paths.get(args[0]);
@@ -61,7 +65,7 @@ public class BackupMavenArtifacts {
         }
         Path backupLocation = Paths.get(args[2]);
 
-        BackupMavenArtifacts grabber = new BackupMavenArtifacts(rootPom, mavenRepo, backupLocation);
+        BackupMavenArtifacts grabber = new BackupMavenArtifacts(rootPom, mavenRepo, backupLocation, Boolean.valueOf(args[3]));
         grabber.recordModules(rootPom);
         grabber.copyArtifacts();
     }
@@ -143,6 +147,7 @@ public class BackupMavenArtifacts {
         }
 
         Files.createDirectories(targetDir);
-        Files.walkFileTree(sourceDir, new CopyDirectoryVisitor(SPLIT, sourceDir, targetDir));
+        LargeFileAction largeFileAction = useGitLfs ? NONE : SPLIT;
+        Files.walkFileTree(sourceDir, new CopyDirectoryVisitor(largeFileAction, sourceDir, targetDir));
     }
 }

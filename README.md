@@ -110,6 +110,26 @@ the java-version to use for the generated [setup-java action](https://github.com
 overridden by the user in the issue YAML. Also, in the next section we can set up the default java version to use when 
 tailoring component builds.
 
+#### Enable git-lfs
+To be able to share large files, you might want to enable [git-lfs](https://git-lfs.github.com) on this repository. This is
+because we push a lot of interim Maven artifacts etc. to the branches used to drive the workflow.
+In a local clone of the repository:
+* install git-lfs for your operating system
+* Run:
+** `git lfs install`
+** `git lfs track '*.jar'`
+** `git lfs track '*.zip'`
+* Then commit and push the `.gitattributes` file.
+
+Then enable this mechanism with
+```
+git-lfs: false
+```
+in your `.repo-config/config.yml` file.
+
+If git-lfs is turned off, and any files greater than 90MB are copied as part of the workflow run,
+they will be split and merged when copying them around. 
+
 ### Tailoring build
 By default with what we have seen so far, the tool will generate a workflow file which simply does the following steps for each component:
 * Check out the specified repo + branch

@@ -27,6 +27,7 @@ public class RepoConfigParserTest {
         Assert.assertNotNull(repoConfig.getEnv());
         Assert.assertEquals(0, repoConfig.getEnv().size());
 
+        Assert.assertFalse(repoConfig.isGitLfs());
         Assert.assertNull(repoConfig.getJavaVersion());
     }
 
@@ -42,6 +43,7 @@ public class RepoConfigParserTest {
         Assert.assertEquals("abc def", repoConfig.getEnv().get("OPT"));
         Assert.assertEquals("Test", repoConfig.getEnv().get("MY_VAR"));
 
+        Assert.assertTrue(repoConfig.isGitLfs());
         Assert.assertEquals("14", repoConfig.getJavaVersion());
 
     }

@@ -41,14 +41,22 @@ public class RepoConfigParser extends BaseParser {
 
         Object envInput = input.remove("env");
         Object javaVersionInput = input.remove("java-version");
+        Object gitLfsInput = input.remove("git-lfs");
 
         if (input.size() > 0) {
             throw new IllegalStateException("Unknown entries: " + input.keySet());
+        }
+        boolean gitLfs = RepoConfig.DEFAULT_GIT_LFS;
+        if (gitLfsInput != null) {
+            if (!(gitLfsInput instanceof Boolean)) {
+                throw new IllegalStateException("'git-lfs' must be a boolean (true or false without quotes)");
+            }
+            gitLfs = ((Boolean) gitLfsInput).booleanValue();
         }
 
         Map<String, String> env = parseEnv(envInput);
         String javaVersion = parseJavaVersion(javaVersionInput);
 
-        return new RepoConfig(env, javaVersion);
+        return new RepoConfig(env, javaVersion, gitLfs);
     }
 }

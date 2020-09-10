@@ -323,6 +323,13 @@ public class GitHubActionGenerator {
                         .setVersion(context.getJavaVersion())
                         .build());
 
+        if (context.getRepoConfig().isGitLfs()) {
+            steps.add(
+                    new EnableGitLfsBuilder()
+                            .setWorkingDirectory(CI_TOOLS_CHECKOUT_FOLDER)
+                            .build());
+        }
+
         if (component.getDependencies().size() > 0) {
             // Get the maven artifact backups
             steps.add(
@@ -398,7 +405,11 @@ public class GitHubActionGenerator {
                 new RunMultiRepoCiToolCommandBuilder()
                         .setJar(CI_TOOLS_CHECKOUT_FOLDER + "/multi-repo-ci-tool.jar")
                         .setCommand(BackupMavenArtifacts.BACKUP_MAVEN_ARTIFACTS)
-                        .addArgs(rootPom.toAbsolutePath().toString(), MAVEN_REPO.toString(), backupPath.toAbsolutePath().toString())
+                        .addArgs(
+                                rootPom.toAbsolutePath().toString(),
+                                MAVEN_REPO.toString(),
+                                backupPath.toAbsolutePath().toString(),
+                                Boolean.toString(context.getRepoConfig().isGitLfs()))
                         .setIfCondition(IfCondition.SUCCESS)
                         .build());
 
@@ -489,6 +500,10 @@ public class GitHubActionGenerator {
 
         protected boolean isGrabVersion() {
             return true;
+        }
+
+        public RepoConfig getRepoConfig() {
+            return repoConfig;
         }
     }
 
