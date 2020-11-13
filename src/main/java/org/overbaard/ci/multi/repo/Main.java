@@ -13,9 +13,12 @@ import org.overbaard.ci.multi.repo.log.copy.CopyLogArtifacts;
 import org.overbaard.ci.multi.repo.directory.utils.BackupMavenArtifacts;
 import org.overbaard.ci.multi.repo.directory.utils.OverlayBackedUpMavenArtifacts;
 
+import io.quarkus.runtime.annotations.QuarkusMain;
+
 /**
  * @author <a href="mailto:kabir.khan@jboss.com">Kabir Khan</a>
  */
+@QuarkusMain
 public class Main {
 
     private static final Map<String, ToolCommand> COMMANDS;
