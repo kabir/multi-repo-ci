@@ -1,0 +1,96 @@
+name: Build And Publish Image To Docker
+on: 
+  push:
+    branches: [master, dev*]
+env:
+  REGISTRY: quay.io
+  QUAY_NAMESPACE: overbaard
+  QUAY_IMAGE_NAME: ob-ci-action-tooling
+jobs:
+  build-and-publish:
+    runs-on: [ubuntu-latest]
+    steps:
+      - uses: n1hility/cancel-previous-runs@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - id: check
+        name: Check relevant branch
+        run: |
+          repo_owner=${{ github.repository_owner }}
+          ref=${{ github.ref }}
+    
+          build=0
+          tag=
+          
+          echo Pushed to branch ${ref}
+          echo Repository owner ${repo_owner}
+          
+          if [[ "${repo_owner}" == 'overbaard' ]]; then
+            echo Push to upstream. Checking branch....
+            
+            if [[ "${ref}" != 'refs/heads/master' ]]; then
+              # In the upstream repository we only build if we pushed to the 'master' branch
+              # and the docker tag should be 'latest'
+              echo We should build from the ${ref} branch
+              build=1
+              tag=latest
+            fi
+          elif [[ "${repo_owner}" == 'kabir' ]]; then
+            echo Push to ${repo_owner}. Checking branch....
+            
+            if [[ "${ref}" != 'refs/heads/master' ]]; then
+              # In the forks we only build if we did not push to the 'master' branch.
+              # The branches triggering all this are set in the on/push/branches of the
+              # workflow as a whole.
+              # The docker tag should be 'dev'
+              echo We should build from the ${ref} branch
+              build=1
+              tag=dev
+            fi
+          else
+            echo Push to ${repo_owner}. We will not perform a build.
+          fi
+          
+          if [[ ${build} -eq 1 ]]; then
+            echo Checking settings for pushing to quay.io...
+            
+            # Check secrets for pushing to Quay.io and set build var correspondingly
+            # Checking these directly with the expressions fails the job if not set
+            # so go via env vars
+            username=${{secrets.QUAY_USERNAME}}
+            token=${{secrets.QUAY_TOKEN}}
+            if [[ -n ${username} && -n ${token} ]]; then
+              echo Settings found!
+            else
+              echo Settings not found.
+              build=0
+            fi
+          fi
+          
+          if [[ ${build} -eq 1 ]]; then
+            echo "Setting BUILD output variable"
+            echo ::set-output name=BUILD::${build}
+            echo "TAG=${tag}" >> $GITHUB_ENV
+
+          fi
+
+      - uses: actions/checkout@v2
+        if: ${{ steps.check.outputs.BUILD }}
+      
+      - uses: actions/cache@v2
+        if: ${{ steps.check.outputs.BUILD }}
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+            
+      - uses: actions/setup-java@v1
+        if: ${{ steps.check.outputs.BUILD }}
+        with:
+          java-version: 11
+          
+      - name: Build Native Executable
+        if: ${{ steps.check.outputs.BUILD }}
+        run: |
+          mvn -B install -Dnative
