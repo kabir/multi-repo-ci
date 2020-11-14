@@ -1,4 +1,4 @@
-name: Build And Publish Image To Docker
+name: Build And Publish Image To Quay.io
 on: 
   push:
     branches: [master, dev*]
@@ -13,6 +13,9 @@ jobs:
       - uses: n1hility/cancel-previous-runs@v2
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      ####################################################
+      # Some pre-checking and setting of variables
       - id: check
         name: Check relevant branch
         run: |
@@ -20,7 +23,7 @@ jobs:
           ref=${{ github.ref }}
     
           build=0
-          tag=
+          version=
           
           echo Pushed to branch ${ref}
           echo Repository owner ${repo_owner}
@@ -33,7 +36,7 @@ jobs:
               # and the docker tag should be 'latest'
               echo We should build from the ${ref} branch
               build=1
-              tag=latest
+              version=latest
             fi
           elif [[ "${repo_owner}" == 'kabir' ]]; then
             echo Push to ${repo_owner}. Checking branch....
@@ -45,7 +48,7 @@ jobs:
               # The docker tag should be 'dev'
               echo We should build from the ${ref} branch
               build=1
-              tag=dev
+              version=dev
             fi
           else
             echo Push to ${repo_owner}. We will not perform a build.
@@ -70,10 +73,12 @@ jobs:
           if [[ ${build} -eq 1 ]]; then
             echo "Setting BUILD output variable"
             echo ::set-output name=BUILD::${build}
-            echo "TAG=${tag}" >> $GITHUB_ENV
+            echo "VERSION=${version}" >> $GITHUB_ENV
 
           fi
 
+      ####################################################
+      # Java/Quarkus stuff to build a native executable
       - uses: actions/checkout@v2
         if: ${{ steps.check.outputs.BUILD }}
       
@@ -89,8 +94,46 @@ jobs:
         if: ${{ steps.check.outputs.BUILD }}
         with:
           java-version: 11
-          
+
       - name: Build Native Executable
         if: ${{ steps.check.outputs.BUILD }}
         run: |
           mvn -B install -Dnative
+
+
+      ####################################################
+      # Docker stuff
+      - name: Prepare Output Variables For Docker Push
+        id: docker-tag
+        if: ${{ steps.check.outputs.BUILD }}
+        run: |
+          TMP=${REGISTRY}/${QUAY_NAMESPACE}/${QUAY_IMAGE_NAME}:${VERSION}
+          echo ::set-output name=TAG::${TMP}
+
+      - name: Check Docker Tag
+        if: ${{ steps.check.outputs.BUILD }}
+        run: echo ${{ steps.docker-tag.outputs.TAG }}
+
+      - name: Set up QEMU
+        if: ${{ steps.check.outputs.BUILD }}
+        uses: docker/setup-qemu-action@v1
+
+      - name: Set up Docker Buildx
+        if: ${{ steps.check.outputs.BUILD }}
+        uses: docker/setup-buildx-action@v1
+
+      - name: Login to Quay
+        if: ${{ steps.check.outputs.BUILD }}
+        uses: docker/login-action@v1
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_USERNAME }}
+          password: ${{ secrets.QUAY_TOKEN }}
+
+      - name: Build and Push
+        id: docker_build
+        uses: docker/build-push-action@v2
+        with:
+          push: true
+          context: .
+          tags: ${{ steps.docker-tag.outputs.TAG }}
