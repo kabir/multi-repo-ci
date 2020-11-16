@@ -1,7 +1,5 @@
 package org.overbaard.ci.multi.repo.config.trigger;
 
-import static org.overbaard.ci.multi.repo.generator.GitHubActionGenerator.ISSUE_DATA_JSON_PATH;
-
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.FileReader;
@@ -27,14 +25,15 @@ import org.yaml.snakeyaml.Yaml;
  */
 public class TriggerConfigParser extends BaseParser {
     private final Path yamlFile;
-    private static final Path outputFile = ISSUE_DATA_JSON_PATH.toAbsolutePath();
+    private final Path issueDataJson;
 
-    private TriggerConfigParser(Path yamlFile) {
+    private TriggerConfigParser(Path yamlFile, Path issueDataJson) {
         this.yamlFile = yamlFile;
+        this.issueDataJson = issueDataJson;
     }
 
-    public static TriggerConfigParser create(Path yamlFile) {
-        return new TriggerConfigParser(yamlFile);
+    public static TriggerConfigParser create(Path yamlFile, Path issueDataJson) {
+        return new TriggerConfigParser(yamlFile, issueDataJson);
     }
 
     public TriggerConfig parse()  {
@@ -223,14 +222,15 @@ public class TriggerConfigParser extends BaseParser {
     private void writeOutputFile(TriggerConfig triggerConfig) {
 
         try {
-            if (Files.exists(outputFile)) {
-                Files.delete(outputFile);
+            System.out.println("Writing output file to: " + issueDataJson);
+            if (Files.exists(issueDataJson)) {
+                Files.delete(issueDataJson);
             }
-            if (!Files.exists(outputFile.getParent())) {
-                Files.createDirectories(outputFile.getParent());
+            if (!Files.exists(issueDataJson.getParent())) {
+                Files.createDirectories(issueDataJson.getParent());
             }
-            if (!Files.isDirectory(outputFile.getParent())) {
-                throw new IllegalArgumentException(outputFile.getParent() + " is not a directory");
+            if (!Files.isDirectory(issueDataJson.getParent())) {
+                throw new IllegalArgumentException(issueDataJson.getParent() + " is not a directory");
             }
 
             JSONObject jo = new JSONObject();
@@ -257,7 +257,7 @@ public class TriggerConfigParser extends BaseParser {
                 components.put(c.getName(), co);
             }
             jo.put("components", components);
-            try (Writer writer = new BufferedWriter(new FileWriter(outputFile.toFile()))){
+            try (Writer writer = new BufferedWriter(new FileWriter(issueDataJson.toFile()))){
                 jo.write(writer, 1, 1);
             }
         } catch (Exception e) {

@@ -56,9 +56,7 @@ public class GitHubActionGenerator {
     final static String STATUS_OUTPUT_OUTPUT_VAR_NAME = "status-output";
     final static String STATUS_OUTPUT_OUTPUT_REF = "needs." + STATUS_OUTPUT_JOB_NAME + ".outputs." + STATUS_OUTPUT_OUTPUT_VAR_NAME;
 
-    public final static Path ISSUE_DATA_JSON_PATH = Paths.get(OB_ISSUE_DATA_JSON);
-
-
+    private static final String ARG_WORKING_DIR = "--working-dir";
     private static final String ARG_WORKFLOW_DIR = "--workflow-dir";
     private static final String ARG_YAML = "--yaml";
     private static final String ARG_ISSUE = "--issue";
@@ -92,6 +90,7 @@ public class GitHubActionGenerator {
     private final Map<String, ComponentJobsConfig> componentJobsConfigs = new HashMap<>();
     final Map<String, Object> jobs = new LinkedHashMap<>();
     private final Map<String, String> buildJobNamesByComponent = new LinkedHashMap<>();
+    private final Path issueDataJson;
     private final Path workflowFile;
     private final Path yamlConfig;
     private final String branchName;
@@ -99,7 +98,8 @@ public class GitHubActionGenerator {
     private String jobLogsArtifactName;
     private boolean hasDebugComponents;
 
-    private GitHubActionGenerator(Path workflowFile, Path yamlConfig, String branchName, int issueNumber) {
+    private GitHubActionGenerator(Path workingDirectory, Path workflowFile, Path yamlConfig, String branchName, int issueNumber) {
+        this.issueDataJson = workingDirectory.resolve(OB_ISSUE_DATA_JSON);
         this.workflowFile = workflowFile;
         this.yamlConfig = yamlConfig;
         this.branchName = branchName;
@@ -117,9 +117,19 @@ public class GitHubActionGenerator {
         String branchName = null;
         String issueNumberString = null;
         Path workflowDir = null;
+        Path workingDir = Paths.get(".");
         for (String arg : args) {
             try {
-                if (arg.startsWith(ARG_WORKFLOW_DIR)) {
+                if (arg.startsWith(ARG_WORKING_DIR)) {
+                    String val = arg.substring(ARG_WORKING_DIR.length() + 1);
+                    workingDir = Paths.get(val);
+                    if (!Files.exists(workingDir) || !Files.isDirectory(workingDir)) {
+                        System.err.println(workingDir + " is not a directory");
+                        usage();
+                        System.exit(1);
+                    }
+
+                } else if (arg.startsWith(ARG_WORKFLOW_DIR)) {
                     String val = arg.substring(ARG_WORKFLOW_DIR.length() + 1);
                     workflowDir = Paths.get(val);
                     if (!Files.exists(workflowDir) || !Files.isDirectory(workflowDir)) {
@@ -127,6 +137,7 @@ public class GitHubActionGenerator {
                         usage();
                         System.exit(1);
                     }
+                    System.out.println("Workflow directory " + workflowDir.toAbsolutePath());
 
                 } else if (arg.startsWith(ARG_YAML)) {
                     String val = arg.substring(ARG_YAML.length() + 1);
@@ -136,6 +147,7 @@ public class GitHubActionGenerator {
                         usage();
                         System.exit(1);
                     }
+                    System.out.println("Yaml " + yamlConfig.toAbsolutePath());
                 } else if (arg.startsWith(ARG_ISSUE)) {
                     issueNumberString = arg.substring(ARG_ISSUE.length() + 1);
                 } else if (arg.startsWith(ARG_BRANCH)) {
@@ -176,14 +188,18 @@ public class GitHubActionGenerator {
         }
 
         Path workflowFile = workflowDir.resolve("ci-" + issueNumberString + ".yml");
-        return new GitHubActionGenerator(workflowFile, yamlConfig, branchName, issueNumber);
+        return new GitHubActionGenerator(workingDir, workflowFile, yamlConfig, branchName, issueNumber);
     }
 
     private static void usage() throws URISyntaxException {
         Usage usage = new Usage();
         URL url = Main.class.getProtectionDomain().getCodeSource().getLocation();
 
-        usage.addArguments(ARG_WORKFLOW_DIR + "=<file>");
+        usage.addArguments(ARG_WORKING_DIR + "=<dir>");
+        usage.addInstruction("Optional file system path to the directory this is being run from. " +
+                "Important when running in native mode. It is where the job json will be generated.");
+
+        usage.addArguments(ARG_WORKFLOW_DIR + "=<dir>");
         usage.addInstruction("File system path to directory to output the created workflow yaml");
 
         usage.addArguments(ARG_YAML + "=<file>");
@@ -201,8 +217,7 @@ public class GitHubActionGenerator {
 
     private void generate() throws Exception {
         RepoConfig repoConfig = RepoConfigParser.create(REPO_CONFIG_FILE).parse();
-        TriggerConfig triggerConfig = TriggerConfigParser.create(yamlConfig).parse();
-        System.out.println("Wil create workflow file at " + workflowFile.toAbsolutePath());
+        TriggerConfig triggerConfig = TriggerConfigParser.create(yamlConfig, issueDataJson).parse();
 
         setupWorkFlowHeaderSection(repoConfig, triggerConfig);
         setupJobs(repoConfig, triggerConfig);

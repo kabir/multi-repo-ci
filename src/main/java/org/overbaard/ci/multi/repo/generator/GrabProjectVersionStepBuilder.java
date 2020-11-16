@@ -1,6 +1,5 @@
 package org.overbaard.ci.multi.repo.generator;
 
-import static org.overbaard.ci.multi.repo.generator.GitHubActionGenerator.ISSUE_DATA_JSON_PATH;
 import static org.overbaard.ci.multi.repo.generator.GitHubActionGenerator.OB_ISSUE_DATA_JSON_VAR_NAME;
 
 import java.util.LinkedHashMap;
