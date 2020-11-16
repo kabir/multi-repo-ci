@@ -5,13 +5,11 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.io.Reader;
 import java.net.URL;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -21,6 +19,7 @@ import org.junit.Test;
 import org.overbaard.ci.multi.repo.config.trigger.Component;
 import org.overbaard.ci.multi.repo.config.trigger.TriggerConfig;
 import org.overbaard.ci.multi.repo.config.trigger.TriggerConfigParser;
+import org.overbaard.ci.multi.repo.generator.GitHubActionGenerator;
 
 /**
  * @author <a href="mailto:kabir.khan@jboss.com">Kabir Khan</a>
@@ -30,7 +29,8 @@ public class TriggerConfigParserTest {
     public void testParseYaml() throws Exception {
         URL url = this.getClass().getResource("issue-test.yml");
         Path path = Paths.get(url.toURI());
-        TriggerConfig triggerConfig = TriggerConfigParser.create(path).parse();
+        Path issueData = Paths.get(".", GitHubActionGenerator.OB_ISSUE_DATA_JSON);
+        TriggerConfig triggerConfig = TriggerConfigParser.create(path, issueData).parse();
         Assert.assertNotNull(triggerConfig);
 
         Map<String, String> env = triggerConfig.getEnv();
