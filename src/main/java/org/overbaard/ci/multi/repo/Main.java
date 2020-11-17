@@ -7,6 +7,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+import org.overbaard.ci.multi.repo.directory.utils.GrabMavenVersion;
 import org.overbaard.ci.multi.repo.directory.utils.SplitLargeFilesInDirectory;
 import org.overbaard.ci.multi.repo.generator.GitHubActionGenerator;
 import org.overbaard.ci.multi.repo.log.copy.CopyLogArtifacts;
@@ -30,6 +31,7 @@ public class Main {
         map.put(OverlayBackedUpMavenArtifacts.Command.NAME, new OverlayBackedUpMavenArtifacts.Command());
         map.put(SplitLargeFilesInDirectory.SplitCommand.NAME, new SplitLargeFilesInDirectory.SplitCommand());
         map.put(SplitLargeFilesInDirectory.MergeCommand.NAME, new SplitLargeFilesInDirectory.MergeCommand());
+        map.put(GrabMavenVersion.Command.NAME, new GrabMavenVersion.Command());
         COMMANDS = Collections.unmodifiableMap(map);
     }
 

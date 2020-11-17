@@ -29,8 +29,6 @@ import org.overbaard.ci.multi.repo.ToolCommand;
  * @author <a href="mailto:kabir.khan@jboss.com">Kabir Khan</a>
  */
 public class BackupMavenArtifacts {
-    private static final XMLInputFactory XML_INPUT_FACTORY = XMLInputFactory.newInstance();
-
     private final List<ProjectArtifactInfo> artifactInfos = new ArrayList<>();
 
     private final Path rootPom;
@@ -64,7 +62,7 @@ public class BackupMavenArtifacts {
     }
 
     private void recordModules(Path path) throws Exception {
-        Model model = readModel(path);
+        Model model = ReadMavenModelUtil.readModel(path);
         artifactInfos.add(ProjectArtifactInfo.create(model));
 
         if (model.getModules().size() > 0) {
@@ -74,36 +72,6 @@ public class BackupMavenArtifacts {
                 recordModules(childPom);
             }
         }
-    }
-
-    private Model readModel(Path pomXml) throws Exception {
-        try (BufferedReader reader = Files.newBufferedReader(pomXml, getEncoding(pomXml))) {
-            final MavenXpp3Reader xpp3Reader = new MavenXpp3Reader();
-            final Model model = xpp3Reader.read(reader);
-            model.setPomFile(pomXml.toFile());
-
-            return model;
-        } catch (org.codehaus.plexus.util.xml.pull.XmlPullParserException ex) {
-            throw new IOException("Failed to parse artifact POM model", ex);
-        }
-    }
-
-    private Charset getEncoding(Path pomXml) throws IOException {
-        Charset charset = StandardCharsets.UTF_8;
-        try (Reader reader = new BufferedReader(new FileReader(pomXml.toFile()))) {
-            XMLStreamReader xmlReader = XML_INPUT_FACTORY.createXMLStreamReader(reader);
-            try {
-                String encoding = xmlReader.getCharacterEncodingScheme();
-                if (encoding != null) {
-                    charset = Charset.forName(encoding);
-                }
-            } finally {
-                xmlReader.close();
-            }
-        } catch (XMLStreamException ex) {
-            throw new IOException("Failed to retrieve encoding for " + pomXml, ex);
-        }
-        return charset;
     }
 
     private void copyArtifacts() throws Exception {
