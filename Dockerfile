@@ -6,6 +6,8 @@ RUN microdnf install -y git jq && \
 
 
 COPY docker/entrypoint.sh /entrypoint.sh
+COPY docker/ci-tool-common.sh /ci-tool-common.sh
+
 COPY target/multi-repo-ci-tool-runner /multi-repo-ci-tool-runner
 
 ENTRYPOINT ["/entrypoint.sh"]
