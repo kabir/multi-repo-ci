@@ -34,7 +34,6 @@ import org.overbaard.ci.multi.repo.config.trigger.TriggerConfigParser;
 import org.overbaard.ci.multi.repo.directory.utils.SplitLargeFilesInDirectory;
 import org.overbaard.ci.multi.repo.log.copy.CopyLogArtifacts;
 import org.overbaard.ci.multi.repo.directory.utils.BackupMavenArtifacts;
-import org.overbaard.ci.multi.repo.directory.utils.OverlayBackedUpMavenArtifacts;
 import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.Yaml;
 
@@ -42,6 +41,10 @@ import org.yaml.snakeyaml.Yaml;
  * @author <a href="mailto:kabir.khan@jboss.com">Kabir Khan</a>
  */
 public class GitHubActionGenerator {
+    public static final String PRE_BUILD_ACTION = "kabir/play-action/temp-pre-build@master";
+    public static final String POST_BUILD_ACTION = "kabir/play-action/temp-post-build@master";
+
+
     public static final String TOKEN_NAME = "secrets.OB_MULTI_CI_PAT";
     public static final String OB_ISSUE_ID_VAR_NAME = "OB_ISSUE_ID";
     public static final String OB_PROJECT_VERSION_VAR_NAME = "OB_PROJECT_VERSION";
@@ -52,9 +55,12 @@ public class GitHubActionGenerator {
     public static final String OB_STATUS_RELATIVE_PATH = OB_ARTIFACTS_DIRECTORY_NAME + "/status-text.txt";
     public static final String OB_ISSUE_DATA_JSON_VAR_NAME = "OB_ISSUE_DATA_JSON";
     public static final String OB_ISSUE_DATA_JSON = "issue-data.json";
+    private final static String PRE_BUILD_STEP_ID = "pre-build";
+    private final static String PRE_BUILD_STEP_OUTPUT_VERSION = "version";
+    private final static String PRE_BUILD_STEP_OUTPUT_GIT_SHA = "git-sha";
     final static String STATUS_OUTPUT_JOB_NAME = "ob-ci-read-status-output";
     final static String STATUS_OUTPUT_OUTPUT_VAR_NAME = "status-output";
-    final static String STATUS_OUTPUT_OUTPUT_REF = "needs." + STATUS_OUTPUT_JOB_NAME + ".outputs." + STATUS_OUTPUT_OUTPUT_VAR_NAME;
+    final static String STATUS_OUTPUT_OUTPUT_REF = "needs." + PRE_BUILD_STEP_ID + ".outputs." + STATUS_OUTPUT_OUTPUT_VAR_NAME;
 
     private static final String ARG_WORKING_DIR = "--working-dir";
     private static final String ARG_WORKFLOW_DIR = "--workflow-dir";
@@ -62,8 +68,6 @@ public class GitHubActionGenerator {
     private static final String ARG_ISSUE = "--issue";
     private static final String ARG_BRANCH = "--branch";
 
-    private static final String REV_PARSE_STEP_ID = "git-rev-parse";
-    private static final String REV_PARSE_STEP_OUTPUT = "git-sha";
 
     private static final String DEFAULT_JAVA_VERSION = "11";
 
@@ -376,8 +380,10 @@ public class GitHubActionGenerator {
 
         if (context.isBuildJob()) {
             Map<String, String> outputs = new HashMap<>();
-            outputs.put(myVersionEnvVarName, "${{steps.grab-version.outputs." + myVersionEnvVarName + "}}");
-            outputs.put(REV_PARSE_STEP_OUTPUT, "${{steps." + REV_PARSE_STEP_ID + ".outputs." + REV_PARSE_STEP_OUTPUT + "}}");
+            outputs.put(myVersionEnvVarName,
+                    "${{steps." + PRE_BUILD_STEP_ID +".outputs." + PRE_BUILD_STEP_OUTPUT_VERSION + "}}");
+            outputs.put(PRE_BUILD_STEP_OUTPUT_GIT_SHA,
+                    "${{steps." + PRE_BUILD_STEP_ID + ".outputs." + PRE_BUILD_STEP_OUTPUT_GIT_SHA + "}}");
             job.put("outputs", outputs);
         }
 
@@ -388,8 +394,7 @@ public class GitHubActionGenerator {
                         .setRepo(component.getOrg(), component.getName())
                         .setBranch(component.getBranch())
                         .build());
-        // Get this repo so that we have the tooling contained in this project. We will run various of these later.
-        // This is also used for sharing files between jobs
+        // Get this repo so that we have the artifacts cache for this project.
         steps.add(
                 new CheckoutStepBuilder()
                         .setPath(CI_TOOLS_CHECKOUT_FOLDER)
@@ -402,36 +407,38 @@ public class GitHubActionGenerator {
                 new SetupJavaStepBuilder()
                         .setVersion(context.getJavaVersion())
                         .build());
-
-        if (context.hasDependencies()) {
-            // Get the maven artifact backups
-            steps.add(
-                    new GitCommandStepBuilder()
-                            .setWorkingDirectory(CI_TOOLS_CHECKOUT_FOLDER)
-                            .setRebase()
-                            .build());
-
-            steps.add(
-                    new RunMultiRepoCiToolCommandStepBuilder()
-                            .setJar(CI_TOOLS_CHECKOUT_FOLDER + "/" + TOOL_JAR_NAME)
-                            .setCommand(OverlayBackedUpMavenArtifacts.Command.NAME)
-                            .addArgs(MAVEN_REPO.toString(), MAVEN_REPO_BACKUPS_ROOT.toString())
-                            .build());
-        }
-
-        if (context.isBuildJob()) {
-            steps.add(
-                    new GrabProjectVersionStepBuilder()
-                            .setComponentName(component.getName())
-                            .setEnvVarName(getInternalVersionEnvVarName(component.getName()))
-                            .build());
-            steps.add(
-                new GitRevParseIntoOutputVariableStepBuilder(REV_PARSE_STEP_ID, REV_PARSE_STEP_OUTPUT)
-                    .setComponentName(component.getName())
+        steps.add(
+                new PreBuildStepBuilder(PRE_BUILD_ACTION, PRE_BUILD_STEP_ID, context.isBuildJob(), context.isCustomComponentJob())
                     .build());
-        }
-
-        addIpv6LocalhostHostEntryIfRunningOnGitHub(steps, context.getRunsOn());
+//        if (context.hasDependencies()) {
+//            // Get the maven artifact backups
+//            steps.add(
+//                    new GitCommandStepBuilder()
+//                            .setWorkingDirectory(CI_TOOLS_CHECKOUT_FOLDER)
+//                            .setRebase()
+//                            .build());
+//
+//            steps.add(
+//                    new RunMultiRepoCiToolCommandStepBuilder()
+//                            .setJar(CI_TOOLS_CHECKOUT_FOLDER + "/" + TOOL_JAR_NAME)
+//                            .setCommand(OverlayBackedUpMavenArtifacts.Command.NAME)
+//                            .addArgs(MAVEN_REPO.toString(), MAVEN_REPO_BACKUPS_ROOT.toString())
+//                            .build());
+//        }
+//
+//        if (context.isBuildJob()) {
+//            steps.add(
+//                    new GrabProjectVersionStepBuilder()
+//                            .setComponentName(component.getName())
+//                            .setEnvVarName(getInternalVersionEnvVarName(component.getName()))
+//                            .build());
+//            steps.add(
+//                new GitRevParseIntoOutputVariableStepBuilder(REV_PARSE_STEP_ID, REV_PARSE_STEP_OUTPUT)
+//                    .setComponentName(component.getName())
+//                    .build());
+//        }
+//
+//        addIpv6LocalhostHostEntryIfRunningOnGitHub(steps, context.getRunsOn());
 
         steps.addAll(context.createBuildSteps());
 
@@ -440,9 +447,17 @@ public class GitHubActionGenerator {
             steps.add(new TmateDebugStepBuilder().build());
         }
 
-        if (context.isBuildJob()) {
-            backupMavenArtifactsProducedByBuild(context, steps);
-        }
+        steps.add(
+                new PostBuildStepHandler(
+                        POST_BUILD_ACTION,
+                        context.isBuildJob(),
+                        context.isCustomComponentJob(),
+                        context.getComponent().getName())
+                        .build());
+
+//        if (context.isBuildJob()) {
+//            backupMavenArtifactsProducedByBuild(context, steps);
+//        }
 
         // Copy across the build artifacts to the folder and upload the 'root' folder
         final String projectLogsDir = ".project-build-logs";
@@ -606,7 +621,7 @@ public class GitHubActionGenerator {
         env.put(OB_STATUS_VAR_NAME, OB_STATUS_RELATIVE_PATH);
         job.put("outputs",
                 Collections.singletonMap(STATUS_OUTPUT_OUTPUT_VAR_NAME,
-                        String.format("${{steps.%s.outputs.%s}}", STATUS_OUTPUT_OUTPUT_VAR_NAME, STATUS_OUTPUT_OUTPUT_VAR_NAME)));
+                        String.format("${{steps.%s.outputs.%s}}", PRE_BUILD_STEP_ID, STATUS_OUTPUT_OUTPUT_VAR_NAME)));
 
         List<Object> steps = new ArrayList();
 
@@ -652,7 +667,7 @@ public class GitHubActionGenerator {
 
             String hash = String.format("needs.%s.outputs.%s",
                     buildJobName,
-                    REV_PARSE_STEP_OUTPUT);
+                    PRE_BUILD_STEP_OUTPUT_GIT_SHA);
             jobNamesAndVersionVariables.put(buildJobName, hash);
         }
 
@@ -822,6 +837,10 @@ public class GitHubActionGenerator {
             return true;
         }
 
+        protected boolean isCustomComponentJob() {
+            return false;
+        }
+
         public void addIfClause(Map<String, Object> job) {
             // Default is to do nothing
         }
@@ -908,27 +927,27 @@ public class GitHubActionGenerator {
         List<Map<String, Object>> createBuildSteps() {
             List<Map<String, Object>> steps = new ArrayList<>();
 
-            steps.add(new AbsolutePathVariableStepBuilder(OB_ARTIFACTS_DIRECTORY_VAR_NAME).build());
-            steps.add(new AbsolutePathVariableStepBuilder(OB_STATUS_VAR_NAME).build());
-
-            if (isBuildJob()) {
-                // Ensure the artifacts directory is there
-                // It will be available to later jobs via the pushed git branch
-                Map<String, Object> artifactsDir = new LinkedHashMap<>();
-                artifactsDir.put("name", "Ensure artifacts dir is there");
-                artifactsDir.put("run",
-                        BashUtils.createDirectoryIfNotExist("${" + OB_ARTIFACTS_DIRECTORY_VAR_NAME + "}") +
-                                "touch ${" + OB_STATUS_VAR_NAME + "}\n");
-                steps.add(artifactsDir);
-            }
-
-            // Merge any split files
-            steps.add(
-                    new RunMultiRepoCiToolCommandStepBuilder()
-                            .setJar(CI_TOOLS_CHECKOUT_FOLDER + "/" + TOOL_JAR_NAME)
-                            .setCommand(SplitLargeFilesInDirectory.MergeCommand.NAME)
-                            .addArgs("${" + OB_ARTIFACTS_DIRECTORY_VAR_NAME + "}")
-                            .build());
+//            steps.add(new AbsolutePathVariableStepBuilder(OB_ARTIFACTS_DIRECTORY_VAR_NAME).build());
+//            steps.add(new AbsolutePathVariableStepBuilder(OB_STATUS_VAR_NAME).build());
+//
+//            if (isBuildJob()) {
+//                // Ensure the artifacts directory is there
+//                // It will be available to later jobs via the pushed git branch
+//                Map<String, Object> artifactsDir = new LinkedHashMap<>();
+//                artifactsDir.put("name", "Ensure artifacts dir is there");
+//                artifactsDir.put("run",
+//                        BashUtils.createDirectoryIfNotExist("${" + OB_ARTIFACTS_DIRECTORY_VAR_NAME + "}") +
+//                                "touch ${" + OB_STATUS_VAR_NAME + "}\n");
+//                steps.add(artifactsDir);
+//            }
+//
+//            // Merge any split files
+//            steps.add(
+//                    new RunMultiRepoCiToolCommandStepBuilder()
+//                            .setJar(CI_TOOLS_CHECKOUT_FOLDER + "/" + TOOL_JAR_NAME)
+//                            .setCommand(SplitLargeFilesInDirectory.MergeCommand.NAME)
+//                            .addArgs("${" + OB_ARTIFACTS_DIRECTORY_VAR_NAME + "}")
+//                            .build());
 
 
             if (componentJobConfig.isEndJob()) {
@@ -954,27 +973,27 @@ public class GitHubActionGenerator {
                 steps.add(build);
             }
 
-            // Make sure we split any large files that people might have copied into the artifacts directory
-            steps.add(
-                    new RunMultiRepoCiToolCommandStepBuilder()
-                        .setJar(CI_TOOLS_CHECKOUT_FOLDER + "/" + TOOL_JAR_NAME)
-                        .setCommand(SplitLargeFilesInDirectory.SplitCommand.NAME)
-                        .addArgs("${" + OB_ARTIFACTS_DIRECTORY_VAR_NAME + "}")
-                        .build());
-
-            if (!isBuildJob()) {
-                // For build jobs this will be handled by the main boiler plate steps
-                steps.add(
-                        new GitCommandStepBuilder()
-                                .setWorkingDirectory(CI_TOOLS_CHECKOUT_FOLDER)
-                                .setStandardUserAndEmail()
-                                .addFiles("${" + OB_ARTIFACTS_DIRECTORY_VAR_NAME + "}")
-                                .setCommitMessage("Store any artifacts copied to \\${" + OB_ARTIFACTS_DIRECTORY_VAR_NAME + "} by " + getJobName())
-                                .setPush()
-                                .setIfCondition(IfCondition.SUCCESS)
-                                .build());
-
-            }
+//            // Make sure we split any large files that people might have copied into the artifacts directory
+//            steps.add(
+//                    new RunMultiRepoCiToolCommandStepBuilder()
+//                        .setJar(CI_TOOLS_CHECKOUT_FOLDER + "/" + TOOL_JAR_NAME)
+//                        .setCommand(SplitLargeFilesInDirectory.SplitCommand.NAME)
+//                        .addArgs("${" + OB_ARTIFACTS_DIRECTORY_VAR_NAME + "}")
+//                        .build());
+//
+//            if (!isBuildJob()) {
+//                // For build jobs this will be handled by the main boiler plate steps
+//                steps.add(
+//                        new GitCommandStepBuilder()
+//                                .setWorkingDirectory(CI_TOOLS_CHECKOUT_FOLDER)
+//                                .setStandardUserAndEmail()
+//                                .addFiles("${" + OB_ARTIFACTS_DIRECTORY_VAR_NAME + "}")
+//                                .setCommitMessage("Store any artifacts copied to \\${" + OB_ARTIFACTS_DIRECTORY_VAR_NAME + "} by " + getJobName())
+//                                .setPush()
+//                                .setIfCondition(IfCondition.SUCCESS)
+//                                .build());
+//
+//            }
             return steps;
         }
 
@@ -1009,6 +1028,11 @@ public class GitHubActionGenerator {
         @Override
         protected boolean isBuildJob() {
             return componentJobConfig.isBuildJob();
+        }
+
+        @Override
+        protected boolean isCustomComponentJob() {
+            return true;
         }
 
         @Override
