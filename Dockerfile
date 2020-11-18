@@ -1,6 +1,6 @@
 FROM registry.access.redhat.com/ubi8/ubi-minimal
 
-RUN microdnf install -y git jq && \
+RUN microdnf install -y git jq tar && \
      git config --global user.email "ci@example.com" && \
      git config --global user.name "CI Action"
 
