@@ -128,7 +128,7 @@ public class GitHubActionGenerator {
                     String val = arg.substring(ARG_WORKING_DIR.length() + 1);
                     workingDir = Paths.get(val);
                     if (!Files.exists(workingDir) || !Files.isDirectory(workingDir)) {
-                        System.err.println(workingDir + " is not a directory");
+                        System.out.println(workingDir + " is not a directory");
                         usage();
                         System.exit(1);
                     }
@@ -137,17 +137,15 @@ public class GitHubActionGenerator {
                     String val = arg.substring(ARG_WORKFLOW_DIR.length() + 1);
                     workflowDir = Paths.get(val);
                     if (!Files.exists(workflowDir) || !Files.isDirectory(workflowDir)) {
-                        System.err.println(workflowDir + " is not a directory");
+                        System.out.println(workflowDir + " is not a directory");
                         usage();
                         System.exit(1);
                     }
-                    System.out.println("Workflow directory " + workflowDir.toAbsolutePath());
-
                 } else if (arg.startsWith(ARG_YAML)) {
                     String val = arg.substring(ARG_YAML.length() + 1);
                     yamlConfig = Paths.get(val);
                     if (!Files.exists(yamlConfig) || Files.isDirectory(yamlConfig)) {
-                        System.err.println(yamlConfig + " is not a file");
+                        System.out.println(yamlConfig + " is not a file");
                         usage();
                         System.exit(1);
                     }
@@ -157,28 +155,28 @@ public class GitHubActionGenerator {
                 } else if (arg.startsWith(ARG_BRANCH)) {
                     branchName = arg.substring(ARG_BRANCH.length() + 1);
                 } else {
-                    System.err.println("Unknown argument " + arg);
+                    System.out.println("Unknown argument " + arg);
                     usage();
                     System.exit(1);
                 }
             } catch (ArrayIndexOutOfBoundsException e) {
-                System.err.println("Argument " + arg + " expects a value");
+                System.out.println("Argument " + arg + " expects a value");
             }
         }
 
 
         if (workflowDir == null || yamlConfig == null || branchName == null || issueNumberString == null) {
             if (workflowDir == null) {
-                System.err.println(ARG_WORKFLOW_DIR + " was not specified!");
+                System.out.println(ARG_WORKFLOW_DIR + " was not specified!");
             }
             if (yamlConfig == null) {
-                System.err.println(ARG_YAML + " was not specified!");
+                System.out.println(ARG_YAML + " was not specified!");
             }
             if (issueNumberString == null) {
-                System.err.println(ARG_ISSUE + " was not specified!");
+                System.out.println(ARG_ISSUE + " was not specified!");
             }
             if (branchName == null) {
-                System.err.println(ARG_BRANCH + " was not specified!");
+                System.out.println(ARG_BRANCH + " was not specified!");
             }
             usage();
             System.exit(1);

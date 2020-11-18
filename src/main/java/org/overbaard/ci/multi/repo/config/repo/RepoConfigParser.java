@@ -29,7 +29,7 @@ public class RepoConfigParser extends BaseParser {
         if (Files.exists(yamlFile)) {
             System.out.println("Parsing repository config: " + yamlFile);
         } else {
-            System.err.println("No " + yamlFile + " found. Proceeding without a global repo config");
+            System.out.println("No " + yamlFile + " found. Proceeding without a global repo config");
             return new RepoConfig();
         }
         Map<String, Object> input = null;
@@ -38,6 +38,8 @@ public class RepoConfigParser extends BaseParser {
             input = yaml.load(new BufferedInputStream(new FileInputStream(yamlFile.toFile())));
         } catch (FileNotFoundException e) {
             throw new RuntimeException(e);
+        } catch (Exception e) {
+            throw new IllegalArgumentException("There appear to be some problems in your Yaml input!", e);
         }
 
         Object envInput = input.remove("env");

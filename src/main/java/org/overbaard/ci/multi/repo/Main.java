@@ -35,20 +35,29 @@ public class Main {
         COMMANDS = Collections.unmodifiableMap(map);
     }
 
-    public static void main(String[] args) throws Exception {
-        if (args.length == 0) {
-            usage();
-            System.exit(1);
-        }
-        String cmd = args[0];
-        ToolCommand toolCommand = COMMANDS.get(cmd);
-        if (toolCommand == null) {
-            System.out.println("Unknown command: " + cmd);
-            System.exit(1);
-        }
+    public static void main(String[] args) {
+        try {
+            if (args.length == 0) {
+                usage();
+                System.exit(1);
+            }
+            String cmd = args[0];
+            ToolCommand toolCommand = COMMANDS.get(cmd);
+            if (toolCommand == null) {
+                System.out.println("Unknown command: " + cmd);
+                System.exit(1);
+            }
 
-        String[] newArgs = Arrays.copyOfRange(args, 1, args.length);
-        toolCommand.invoke(newArgs);
+            String[] newArgs = Arrays.copyOfRange(args, 1, args.length);
+            toolCommand.invoke(newArgs);
+        } catch (Throwable t) {
+            // Handle the exception here and print to System.out since otherwise
+            // GitHub Actions reorders the output too much making it hard for people
+            // to see what is going on
+            System.out.println("An error happened running the Multi Repo CI tool");
+            t.printStackTrace(System.out);
+            System.exit(1);
+        }
     }
 
 

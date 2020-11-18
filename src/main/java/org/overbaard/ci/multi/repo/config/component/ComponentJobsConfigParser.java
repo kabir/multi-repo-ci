@@ -42,6 +42,8 @@ public class ComponentJobsConfigParser extends BaseParser {
             input = yaml.load(new BufferedInputStream(new FileInputStream(yamlFile.toFile())));
         } catch (FileNotFoundException e) {
             throw new RuntimeException(e);
+        } catch (Exception e) {
+            throw new IllegalArgumentException("There appear to be some problems in your Yaml input!", e);
         }
 
         Object envInput = input.remove("env");

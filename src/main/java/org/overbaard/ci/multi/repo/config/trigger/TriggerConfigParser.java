@@ -48,13 +48,13 @@ public class TriggerConfigParser extends BaseParser {
                         if (line.startsWith("```")) {
                             foundStart = true;
                         } else {
-                            System.err.println("The yaml in the issue must be in a code block.");
-                            System.err.println("The format is:");
-                            System.err.println("```");
-                            System.err.println("<your yaml>");
-                            System.err.println("```");
-                            System.err.println();
-                            System.err.println("Note that the ``` occurrences should be all the way left. " +
+                            System.out.println("The yaml in the issue must be in a code block.");
+                            System.out.println("The format is:");
+                            System.out.println("```");
+                            System.out.println("<your yaml>");
+                            System.out.println("```");
+                            System.out.println();
+                            System.out.println("Note that the ``` occurrences should be all the way left. " +
                                     "When it looks nice in the GitHub issue you have it!");
                             System.exit(1);
                         }
@@ -73,7 +73,12 @@ public class TriggerConfigParser extends BaseParser {
         }
 
         Yaml yaml = new Yaml();
-        Map<String, Object> map = yaml.load(sanitizedInput.toString());
+        Map<String, Object> map = null;
+        try {
+            map = yaml.load(sanitizedInput.toString());
+        } catch (Exception e) {
+            throw new IllegalArgumentException("There appear to be some problems in your Yaml input!", e);
+        }
 
         Object name = map.remove("name");
         Object envInput = map.remove("env");
