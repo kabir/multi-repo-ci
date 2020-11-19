@@ -412,12 +412,6 @@ public class GitHubActionGenerator {
 
         steps.addAll(context.createBuildSteps());
 
-        /* If we rely on snapshots
-
-            # The action has no access to the ~/.m2 directory (only for build jobs)
-            - run: cd ~/.m2/repository & find  -type d  -name '*-SNAPSHOT' -exec tar cfzv ${GITHUB_WORKSPACE}/.snapshots.tgz {} +
-
-         */
         steps.addAll(
                 new PostBuildStepHandler(
                         POST_BUILD_ACTION, context)
@@ -427,11 +421,6 @@ public class GitHubActionGenerator {
             hasDebugComponents = true;
             steps.add(new TmateDebugStepBuilder().build());
         }
-
-
-//        if (context.isBuildJob()) {
-//            backupMavenArtifactsProducedByBuild(context, steps);
-//        }
 
         // Copy across the build artifacts to the folder and upload the 'root' folder
         final String projectLogsDir = ".project-build-logs";
@@ -461,31 +450,6 @@ public class GitHubActionGenerator {
         job.put("steps", steps);
 
         return job;
-    }
-
-    private void backupMavenArtifactsProducedByBuild(ComponentJobContext context, List<Object> steps) {
-        Path rootPom = Paths.get("pom.xml");
-        Path backupPath = MAVEN_REPO_BACKUPS_ROOT.resolve(context.component.getName());
-
-        // Back up the parts of the maven repo we built
-        steps.add(
-                new RunMultiRepoCiToolCommandStepBuilder()
-                        .setJar(CI_TOOLS_CHECKOUT_FOLDER + "/" + TOOL_JAR_NAME)
-                        .setCommand(BackupMavenArtifacts.Command.NAME)
-                        .addArgs(rootPom.toAbsolutePath().toString(), MAVEN_REPO.toString(), backupPath.toAbsolutePath().toString())
-                        .setIfCondition(IfCondition.SUCCESS)
-                        .build());
-
-        // Commit the changes and push
-        steps.add(
-                new GitCommandStepBuilder()
-                        .setWorkingDirectory(CI_TOOLS_CHECKOUT_FOLDER)
-                        .setStandardUserAndEmail()
-                        .addFiles("-A")
-                        .setCommitMessage("Back up the maven artifacts created by " + context.getComponent().getName())
-                        .setPush()
-                        .setIfCondition(IfCondition.SUCCESS)
-                        .build());
     }
 
     private void setupWorkflowEndJob(RepoConfig repoConfig) {
@@ -901,29 +865,6 @@ public class GitHubActionGenerator {
         List<Map<String, Object>> createBuildSteps() {
             List<Map<String, Object>> steps = new ArrayList<>();
 
-//            steps.add(new AbsolutePathVariableStepBuilder(OB_ARTIFACTS_DIRECTORY_VAR_NAME).build());
-//            steps.add(new AbsolutePathVariableStepBuilder(OB_STATUS_VAR_NAME).build());
-//
-//            if (isBuildJob()) {
-//                // Ensure the artifacts directory is there
-//                // It will be available to later jobs via the pushed git branch
-//                Map<String, Object> artifactsDir = new LinkedHashMap<>();
-//                artifactsDir.put("name", "Ensure artifacts dir is there");
-//                artifactsDir.put("run",
-//                        BashUtils.createDirectoryIfNotExist("${" + OB_ARTIFACTS_DIRECTORY_VAR_NAME + "}") +
-//                                "touch ${" + OB_STATUS_VAR_NAME + "}\n");
-//                steps.add(artifactsDir);
-//            }
-//
-//            // Merge any split files
-//            steps.add(
-//                    new RunMultiRepoCiToolCommandStepBuilder()
-//                            .setJar(CI_TOOLS_CHECKOUT_FOLDER + "/" + TOOL_JAR_NAME)
-//                            .setCommand(SplitLargeFilesInDirectory.MergeCommand.NAME)
-//                            .addArgs("${" + OB_ARTIFACTS_DIRECTORY_VAR_NAME + "}")
-//                            .build());
-
-
             if (componentJobConfig.isEndJob()) {
                 steps.addAll(((ComponentEndJobConfig)componentJobConfig).getSteps());
             } else {
@@ -947,27 +888,6 @@ public class GitHubActionGenerator {
                 steps.add(build);
             }
 
-//            // Make sure we split any large files that people might have copied into the artifacts directory
-//            steps.add(
-//                    new RunMultiRepoCiToolCommandStepBuilder()
-//                        .setJar(CI_TOOLS_CHECKOUT_FOLDER + "/" + TOOL_JAR_NAME)
-//                        .setCommand(SplitLargeFilesInDirectory.SplitCommand.NAME)
-//                        .addArgs("${" + OB_ARTIFACTS_DIRECTORY_VAR_NAME + "}")
-//                        .build());
-//
-//            if (!isBuildJob()) {
-//                // For build jobs this will be handled by the main boiler plate steps
-//                steps.add(
-//                        new GitCommandStepBuilder()
-//                                .setWorkingDirectory(CI_TOOLS_CHECKOUT_FOLDER)
-//                                .setStandardUserAndEmail()
-//                                .addFiles("${" + OB_ARTIFACTS_DIRECTORY_VAR_NAME + "}")
-//                                .setCommitMessage("Store any artifacts copied to \\${" + OB_ARTIFACTS_DIRECTORY_VAR_NAME + "} by " + getJobName())
-//                                .setPush()
-//                                .setIfCondition(IfCondition.SUCCESS)
-//                                .build());
-//
-//            }
             return steps;
         }
 
