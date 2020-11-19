@@ -405,53 +405,29 @@ public class GitHubActionGenerator {
                 new SetupJavaStepBuilder()
                         .setVersion(context.getJavaVersion())
                         .build());
-        steps.add(
-                new PreBuildStepBuilder(PRE_BUILD_ACTION, PRE_BUILD_STEP_ID, context.isBuildJob(), context.isCustomComponentJob())
+
+        steps.addAll(
+                new PreBuildStepBuilder(PRE_BUILD_ACTION, PRE_BUILD_STEP_ID, context)
                     .build());
-//        if (context.hasDependencies()) {
-//            // Get the maven artifact backups
-//            steps.add(
-//                    new GitCommandStepBuilder()
-//                            .setWorkingDirectory(CI_TOOLS_CHECKOUT_FOLDER)
-//                            .setRebase()
-//                            .build());
-//
-//            steps.add(
-//                    new RunMultiRepoCiToolCommandStepBuilder()
-//                            .setJar(CI_TOOLS_CHECKOUT_FOLDER + "/" + TOOL_JAR_NAME)
-//                            .setCommand(OverlayBackedUpMavenArtifacts.Command.NAME)
-//                            .addArgs(MAVEN_REPO.toString(), MAVEN_REPO_BACKUPS_ROOT.toString())
-//                            .build());
-//        }
-//
-//        if (context.isBuildJob()) {
-//            steps.add(
-//                    new GrabProjectVersionStepBuilder()
-//                            .setComponentName(component.getName())
-//                            .setEnvVarName(getInternalVersionEnvVarName(component.getName()))
-//                            .build());
-//            steps.add(
-//                new GitRevParseIntoOutputVariableStepBuilder(REV_PARSE_STEP_ID, REV_PARSE_STEP_OUTPUT)
-//                    .setComponentName(component.getName())
-//                    .build());
-//        }
-//
-//        addIpv6LocalhostHostEntryIfRunningOnGitHub(steps, context.getRunsOn());
 
         steps.addAll(context.createBuildSteps());
+
+        /* If we rely on snapshots
+
+            # The action has no access to the ~/.m2 directory (only for build jobs)
+            - run: cd ~/.m2/repository & find  -type d  -name '*-SNAPSHOT' -exec tar cfzv ${GITHUB_WORKSPACE}/.snapshots.tgz {} +
+
+         */
+        steps.addAll(
+                new PostBuildStepHandler(
+                        POST_BUILD_ACTION, context)
+                        .build());
 
         if (context.getComponent().isDebug()) {
             hasDebugComponents = true;
             steps.add(new TmateDebugStepBuilder().build());
         }
 
-        steps.add(
-                new PostBuildStepHandler(
-                        POST_BUILD_ACTION,
-                        context.isBuildJob(),
-                        context.isCustomComponentJob(),
-                        context.getComponent().getName())
-                        .build());
 
 //        if (context.isBuildJob()) {
 //            backupMavenArtifactsProducedByBuild(context, steps);
@@ -747,7 +723,7 @@ public class GitHubActionGenerator {
                 getInternalVersionEnvVarName(componentName));
     }
 
-    private abstract class ComponentJobContext {
+    abstract class ComponentJobContext {
         protected final RepoConfig repoConfig;
         protected final Component component;
         protected final Map<String, ComponentDependencyContext> dependencyContexts;
