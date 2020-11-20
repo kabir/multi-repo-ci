@@ -1,7 +1,6 @@
 package org.overbaard.ci.multi.repo.generator;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -14,18 +13,37 @@ import org.overbaard.ci.multi.repo.generator.GitHubActionGenerator.ComponentJobC
 class PreBuildStepBuilder {
     private final String action;
     private final String id;
-    private final ComponentJobContext context;
+    private final boolean buildJob;
+    private final boolean customComponentJob;
+    private final boolean workflowEndJob;
+    private final boolean needsMavenRepoAccess;
+
+    public PreBuildStepBuilder(String action, String id) {
+        this(action, id, null);
+    }
 
     public PreBuildStepBuilder(String action, String id, ComponentJobContext context) {
         this.action = action;
         this.id = id;
-        this.context = context;
+        if (context == null) {
+            this.buildJob = false;
+            this.customComponentJob = false;
+            this.workflowEndJob = true;
+            needsMavenRepoAccess = false;
+        } else {
+            this.buildJob = context.isBuildJob();
+            this.customComponentJob = context.isCustomComponentJob();
+            this.workflowEndJob = false;
+            needsMavenRepoAccess = context.hasDependencies() || (context.isCustomComponentJob() && !context.isBuildJob());
+        }
+
     }
+
 
     List<Map<String, Object>> build() {
         List<Map<String, Object>> list = new ArrayList<>();
 
-        if (context.hasDependencies() || !context.isBuildJob()) {
+        if (needsMavenRepoAccess) {
             // We rely on snapshots. The pre-build-action wants to put them into ~/m2-repository
             // but has no access to that location on the runner so we mount it into the workspace
             // folder so that it can write to it
@@ -40,7 +58,7 @@ class PreBuildStepBuilder {
         preBuildStep.put("with", buildWith());
         list.add(preBuildStep);
 
-        if (context.hasDependencies() || !context.isBuildJob()) {
+        if (needsMavenRepoAccess) {
             // OLD WAY - keep in case the mounting I am doing bends too many rules
             // gets disabled in the future
             /*
@@ -62,8 +80,9 @@ class PreBuildStepBuilder {
 
     private Map<String, Object> buildWith() {
         Map<String, Object> with = new LinkedHashMap<>();
-        with.put("build", context.isBuildJob() ? 1 : 0);
-        with.put("custom", context.isCustomComponentJob() ? 1 : 0);
+        with.put("build", buildJob ? 1 : 0);
+        with.put("custom", customComponentJob ? 1 : 0);
+        with.put("workflow-end-job", workflowEndJob ? 1 : 0);
         return with;
     }
 

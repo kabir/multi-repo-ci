@@ -21,9 +21,9 @@ import org.overbaard.ci.multi.repo.ToolCommand;
 import org.overbaard.ci.multi.repo.Usage;
 import org.overbaard.ci.multi.repo.config.component.BaseComponentJobConfig;
 import org.overbaard.ci.multi.repo.config.component.ComponentEndJobConfig;
+import org.overbaard.ci.multi.repo.config.component.ComponentJobConfig;
 import org.overbaard.ci.multi.repo.config.component.ComponentJobsConfig;
 import org.overbaard.ci.multi.repo.config.component.ComponentJobsConfigParser;
-import org.overbaard.ci.multi.repo.config.component.ComponentJobConfig;
 import org.overbaard.ci.multi.repo.config.component.JobRunElementConfig;
 import org.overbaard.ci.multi.repo.config.repo.RepoConfig;
 import org.overbaard.ci.multi.repo.config.repo.RepoConfigParser;
@@ -33,7 +33,6 @@ import org.overbaard.ci.multi.repo.config.trigger.TriggerConfig;
 import org.overbaard.ci.multi.repo.config.trigger.TriggerConfigParser;
 import org.overbaard.ci.multi.repo.directory.utils.SplitLargeFilesInDirectory;
 import org.overbaard.ci.multi.repo.log.copy.CopyLogArtifacts;
-import org.overbaard.ci.multi.repo.directory.utils.BackupMavenArtifacts;
 import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.Yaml;
 
@@ -485,9 +484,6 @@ public class GitHubActionGenerator {
 
         // Add boiler plate steps
 
-        steps.add(new AbsolutePathVariableStepBuilder(OB_ARTIFACTS_DIRECTORY_VAR_NAME).build());
-        steps.add(new AbsolutePathVariableStepBuilder(OB_STATUS_VAR_NAME).build());
-
         steps.add(new CheckoutStepBuilder()
                 .setBranch(branchName)
                 .build());
@@ -497,47 +493,17 @@ public class GitHubActionGenerator {
                                 repoConfig.getJavaVersion() != null ? repoConfig.getJavaVersion() : DEFAULT_JAVA_VERSION)
                         .build());
 
-        steps.add(
-                new GitCommandStepBuilder()
-                        .setRebase()
+        steps.addAll(
+                new PreBuildStepBuilder(PRE_BUILD_ACTION, PRE_BUILD_STEP_ID)
                         .build());
-        steps.add(
-                Collections.singletonMap(
-                        "run",
-                        BashUtils.createDirectoryIfNotExist("${" + OB_ARTIFACTS_DIRECTORY_VAR_NAME + "}")
-                        + "touch ${" + OB_STATUS_VAR_NAME + "}\n"));
-
-        addIpv6LocalhostHostEntryIfRunningOnGitHub(steps, (List)jobCopy.get("runs-on"));
-
-        steps.add(
-                new RunMultiRepoCiToolCommandStepBuilder()
-                        .setJar(TOOL_JAR_NAME)
-                        .setCommand(SplitLargeFilesInDirectory.MergeCommand.NAME)
-                        .addArgs("${" + OB_ARTIFACTS_DIRECTORY_VAR_NAME + "}")
-                        .build());
-
 
         // RepoConfigParser has validated the job format already
         List<Object> jobSteps = (List<Object>)job.get("steps");
         steps.addAll(jobSteps);
         jobCopy.put("steps", steps);
 
-        // Make sure we split any large files that people might have copied into the artifacts directory
-        steps.add(
-                new RunMultiRepoCiToolCommandStepBuilder()
-                        .setJar(TOOL_JAR_NAME)
-                        .setCommand(SplitLargeFilesInDirectory.SplitCommand.NAME)
-                        .addArgs("${" + OB_ARTIFACTS_DIRECTORY_VAR_NAME + "}")
-                        .build());
-
-        // Push the changes to the artifacts
-        steps.add(
-                new GitCommandStepBuilder()
-                        .setStandardUserAndEmail()
-                        .addFiles("${" + OB_ARTIFACTS_DIRECTORY_VAR_NAME + "}")
-                        .setCommitMessage("Store any artifacts copied to \\${" + OB_ARTIFACTS_DIRECTORY_VAR_NAME + "} by " + jobName)
-                        .setPush()
-                        .setIfCondition(IfCondition.SUCCESS)
+        steps.addAll(
+                new PostBuildStepHandler(POST_BUILD_ACTION)
                         .build());
 
         jobs.put(jobName, jobCopy);

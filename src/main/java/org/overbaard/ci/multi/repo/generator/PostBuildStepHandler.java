@@ -12,18 +12,41 @@ import org.overbaard.ci.multi.repo.generator.GitHubActionGenerator.ComponentJobC
  */
 public class PostBuildStepHandler {
     private final String action;
-    private final ComponentJobContext context;
-    public static final String SNAPSHOTS_TGZ = ".snapshots.tgz";
+    private final String component;
+    private final boolean buildJob;
+    private final boolean customComponentJob;
+    private final boolean workflowEndJob;
+    private final boolean mount;
 
     public PostBuildStepHandler(String action, ComponentJobContext context) {
+        this(action, context.getComponent().getName(), context);
+    }
+
+    public PostBuildStepHandler(String action) {
+        this(action, "end-job", null);
+    }
+
+    private PostBuildStepHandler(String action, String component, ComponentJobContext context) {
         this.action = action;
-        this.context = context;
+        this.component = component;
+        if (context != null) {
+            buildJob = context.isBuildJob();
+            customComponentJob = context.isCustomComponentJob();
+            workflowEndJob = false;
+            mount = buildJob && !context.hasDependencies();
+        } else {
+            buildJob = false;
+            customComponentJob = false;
+            workflowEndJob = true;
+            mount = false;
+        }
     }
 
     List<Map<String, Object>> build() {
         List<Map<String, Object>> list = new ArrayList<>();
 
-        if (context.isBuildJob()) {
+        /*
+        if (buildJob) {
             // OLD WAY - keep in case the mounting I am doing bends too many rules
             // gets disabled in the future
             /*
@@ -38,11 +61,11 @@ public class PostBuildStepHandler {
                     String.format("find  -type d  -name '*-SNAPSHOT' -exec tar cfzv ${GITHUB_WORKSPACE}/%s {} +", SNAPSHOTS_TGZ);
             tarSnapshotsStep.put("run", run);
             list.add(tarSnapshotsStep);
-            */
-            if (!context.hasDependencies()) {
-                // If we had dependencies this would be done by the pre build job
-                list.add(PreBuildStepBuilder.createMountStep());
-            }
+        }
+        */
+        if (mount) {
+            // If we had dependencies this would be done by the pre build job
+            list.add(PreBuildStepBuilder.createMountStep());
         }
 
         // Add the step
@@ -52,7 +75,7 @@ public class PostBuildStepHandler {
         postBuildStep.put("with", with);
         list.add(postBuildStep);
 
-        if (context.isBuildJob()) {
+        if (buildJob) {
             // Unmount what we mounted in the  pre build step or above
             Map<String, Object> mountM2Repository = new LinkedHashMap<>();
             mountM2Repository.put("name", "Unmount .m2-repo-mount");
@@ -65,10 +88,11 @@ public class PostBuildStepHandler {
     }
     Map<String, Object> buildWith() {
         Map<String, Object> with = new LinkedHashMap<>();
-        with.put("build", context.isBuildJob() ? 1 : 0);
-        with.put("custom", context.isCustomComponentJob() ? 1 : 0);
-        with.put("component", context.getComponent().getName());
-        // Only needed for the 'old' way uncommented above
+        with.put("build", buildJob ? 1 : 0);
+        with.put("custom", customComponentJob ? 1 : 0);
+        with.put("component", component);
+        with.put("workflow-end-job", workflowEndJob ? 1 : 0);
+        // Only needed for the 'old' way commented above
         //with.put("snapshots", SNAPSHOTS_TGZ);
         return with;
     }
