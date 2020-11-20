@@ -91,7 +91,7 @@ public class PostBuildStepHandler {
         with.put("build", buildJob ? 1 : 0);
         with.put("custom", customComponentJob ? 1 : 0);
         with.put("component", component);
-        with.put("workflow-end-job", workflowEndJob ? 1 : 0);
+        with.put("end", workflowEndJob ? 1 : 0);
         // Only needed for the 'old' way commented above
         //with.put("snapshots", SNAPSHOTS_TGZ);
         return with;

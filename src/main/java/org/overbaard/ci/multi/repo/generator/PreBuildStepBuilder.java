@@ -82,7 +82,7 @@ class PreBuildStepBuilder {
         Map<String, Object> with = new LinkedHashMap<>();
         with.put("build", buildJob ? 1 : 0);
         with.put("custom", customComponentJob ? 1 : 0);
-        with.put("workflow-end-job", workflowEndJob ? 1 : 0);
+        with.put("end", workflowEndJob ? 1 : 0);
         return with;
     }
 
