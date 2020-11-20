@@ -24,6 +24,9 @@ public class PostBuildStepHandler {
         List<Map<String, Object>> list = new ArrayList<>();
 
         if (context.isBuildJob()) {
+            // OLD WAY - keep in case the mounting I am doing bends too many rules
+            // gets disabled in the future
+            /*
             // The post-build action has no access to the ~/.m2 repository so we
             // need to grab the snapshots from the ~/.m2/repository directory
             // and put them in a known place for the action.
@@ -35,6 +38,11 @@ public class PostBuildStepHandler {
                     String.format("find  -type d  -name '*-SNAPSHOT' -exec tar cfzv ${GITHUB_WORKSPACE}/%s {} +", SNAPSHOTS_TGZ);
             tarSnapshotsStep.put("run", run);
             list.add(tarSnapshotsStep);
+            */
+            if (!context.hasDependencies()) {
+                // If we had dependencies this would be done by the pre build job
+                list.add(PreBuildStepBuilder.createMountStep());
+            }
         }
 
         // Add the step
@@ -44,6 +52,15 @@ public class PostBuildStepHandler {
         postBuildStep.put("with", with);
         list.add(postBuildStep);
 
+        if (context.isBuildJob()) {
+            // Unmount what we mounted in the  pre build step or above
+            Map<String, Object> mountM2Repository = new LinkedHashMap<>();
+            mountM2Repository.put("name", "Unmount .m2-repo-mount");
+            mountM2Repository.put("run", "sudo umount .m2-repo-mount && rmdir .m2-repo-mount");
+            list.add(mountM2Repository);
+
+        }
+
         return list;
     }
     Map<String, Object> buildWith() {
@@ -51,7 +68,8 @@ public class PostBuildStepHandler {
         with.put("build", context.isBuildJob() ? 1 : 0);
         with.put("custom", context.isCustomComponentJob() ? 1 : 0);
         with.put("component", context.getComponent().getName());
-        with.put("snapshots", SNAPSHOTS_TGZ);
+        // Only needed for the 'old' way uncommented above
+        //with.put("snapshots", SNAPSHOTS_TGZ);
         return with;
     }
 }

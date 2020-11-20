@@ -496,6 +496,7 @@ public class GitHubActionGenerator {
                         .setVersion(
                                 repoConfig.getJavaVersion() != null ? repoConfig.getJavaVersion() : DEFAULT_JAVA_VERSION)
                         .build());
+
         steps.add(
                 new GitCommandStepBuilder()
                         .setRebase()
