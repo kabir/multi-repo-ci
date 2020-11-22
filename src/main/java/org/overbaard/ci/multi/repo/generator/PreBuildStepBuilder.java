@@ -73,6 +73,7 @@ class PreBuildStepBuilder {
             copySnapshots.put("run", "cd ~/.m2/repository && mv ${GITHUB_WORKSPACE}/${TAR_NAME} . && tar xfzv ${TAR_NAME}");
             list.add(copySnapshots);
             */
+            list.add(createPermissionsStep());
         }
 
         return list;
@@ -92,4 +93,14 @@ class PreBuildStepBuilder {
         mountM2Repository.put("run", "mkdir .m2-repo-mount && sudo mount --rbind ~/.m2/repository/ .m2-repo-mount");
         return mountM2Repository;
     }
+
+
+    private Map<String, Object> createPermissionsStep() {
+        Map<String, Object> mountM2Repository = new LinkedHashMap<>();
+        // It is not possible
+        mountM2Repository.put("name", "Change permissions of files overlaid by the " + id + " step");
+        mountM2Repository.put("run", "sudo chown -R runner  ~/.m2/ ; sudo chgrp -R docker ~/.m2/");
+        return mountM2Repository;
+    }
+
 }
