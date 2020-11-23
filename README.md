@@ -314,8 +314,9 @@ testing up a lot.
 Each of the steps in a custom component build has access to the following env vars:
 * `${OB_ISSUE_ID}` - contains the id of the issue that triggered the workflow
 * `${$OB_PROJECT_VERSION}` - contains the captured version of the component being built
-* `${OB_ARTIFACTS_DIR}` - contains the absoulute path of a directory that can be used to 
-share files between jobs. This is part of the `multi-repo-ci-branch-<issue id>` branch 
+* `${OB_ARTIFACTS_DIR}` - contains the path of a directory that can be used to
+share files between jobs. **Note** that this is *relative* to the directory indicated
+by `${GITHUB_WORKSPACE}`. This directory is part of the `multi-repo-ci-branch-<issue id>` branch
 used to drive the workflow. Essentially you can copy things into here, and read them from 
 a later job in the workflow. Note that Git isn't ideal for sharing large files, so if you
 have any problems you should find some other mechanism for external storage.
@@ -330,7 +331,8 @@ have any problems you should find some other mechanism for external storage.
 before this component. So, e.g if the component was configured to depend on `my-component`, 
 the resulting variable name will be `OB_VERSION_MY_COMPONENT`.
 * `${$OB_STATUS_TEXT}`- Location of a file whose contents will be appended to the issue
-comment once the workflow is done (if you configured issue comments to be made).
+comment once the workflow is done (if you configured issue comments to be made). This again
+is relative to `${GITHUB_WORKSPACE}`.
 * `${OB_ISSUE_DATA_JSON}` - This initially contains the information from the issue body
 that was used to trigger the job. It is a json file, which later jobs may modify, e.g. by
 using `jq` from the command-line. Each component build job will add to this file so that
